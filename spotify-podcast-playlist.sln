@@ -1,0 +1,48 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpotifyPodcastPlaylist", "src\SpotifyPodcastPlaylist\SpotifyPodcastPlaylist.csproj", "{27AD827A-4D71-E8A3-9D93-98C761EE4678}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SpotifyPodcastPlaylist (1)", "SpotifyPodcastPlaylist (1)", "{AC0EB7B5-8B08-D457-47A2-2D547FA12EB0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "obj", "obj", "{774C9681-BCA1-AAB1-8089-1DC0B8B2CCF2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Debug", "Debug", "{C2DB972D-AE6F-66AB-648D-3C96492D386A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "net9.0", "net9.0", "{AC86AB8F-9610-74AA-CBA9-E519A8D09AFD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkerExtensions", "src\SpotifyPodcastPlaylist\obj\Debug\net9.0\WorkerExtensions\WorkerExtensions.csproj", "{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{27AD827A-4D71-E8A3-9D93-98C761EE4678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{27AD827A-4D71-E8A3-9D93-98C761EE4678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{27AD827A-4D71-E8A3-9D93-98C761EE4678}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{27AD827A-4D71-E8A3-9D93-98C761EE4678}.Release|Any CPU.Build.0 = Release|Any CPU
+		{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{27AD827A-4D71-E8A3-9D93-98C761EE4678} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{AC0EB7B5-8B08-D457-47A2-2D547FA12EB0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{774C9681-BCA1-AAB1-8089-1DC0B8B2CCF2} = {AC0EB7B5-8B08-D457-47A2-2D547FA12EB0}
+		{C2DB972D-AE6F-66AB-648D-3C96492D386A} = {774C9681-BCA1-AAB1-8089-1DC0B8B2CCF2}
+		{AC86AB8F-9610-74AA-CBA9-E519A8D09AFD} = {C2DB972D-AE6F-66AB-648D-3C96492D386A}
+		{57368B94-2AA2-640E-CEBB-01DB8B9CF6E3} = {AC86AB8F-9610-74AA-CBA9-E519A8D09AFD}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4CC76CF5-0F1E-4BAB-AA34-4888B5A39685}
+	EndGlobalSection
+EndGlobal
