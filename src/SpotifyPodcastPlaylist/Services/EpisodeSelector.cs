@@ -23,6 +23,9 @@ public class EpisodeSelector : IEpisodeSelector
         var episodes = await _spotifyClient.GetShowEpisodesAsync(config.ShowId);
         _logger.LogInformation("Fetched {Count} episodes for {Name}", episodes.Count, config.Name);
 
+        // Filter out null entries that can appear in paginated API results
+        episodes.RemoveAll(e => e is null);
+
         // Step 2: Exclude fully-played episodes
         var filtered = episodes.Where(e => e.ResumePoint?.FullyPlayed != true).ToList();
         var excludedPlayed = episodes.Count - filtered.Count;
