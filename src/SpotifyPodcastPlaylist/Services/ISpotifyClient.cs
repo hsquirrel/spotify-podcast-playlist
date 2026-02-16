@@ -12,7 +12,7 @@ public interface ISpotifyClient
     /// Returns episodes in the API's default order (newest first).
     /// Each episode includes resume_point data for fully-played detection.
     /// </summary>
-    Task<List<SimpleEpisode>> GetShowEpisodesAsync(string showId);
+    Task<List<SimpleEpisode>> GetShowEpisodesAsync(string showId, int maxPages = 0);
 
     /// <summary>
     /// Replaces the entire contents of a playlist with the given track/episode URIs.

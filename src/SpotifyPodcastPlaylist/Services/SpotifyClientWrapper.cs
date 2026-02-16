@@ -16,16 +16,35 @@ public class SpotifyClientWrapper : ISpotifyClient
         _logger = logger;
     }
 
-    public async Task<List<SimpleEpisode>> GetShowEpisodesAsync(string showId)
+    public async Task<List<SimpleEpisode>> GetShowEpisodesAsync(string showId, int maxPages = 0)
     {
         var client = await GetClientAsync();
 
         try
         {
             var firstPage = await client.Shows.GetEpisodes(showId, new ShowEpisodesRequest { Market = "US" });
-            var allEpisodes = await client.PaginateAll(firstPage);
+
+            List<SimpleEpisode> allEpisodes;
+            if (maxPages <= 0)
+            {
+                allEpisodes = (await client.PaginateAll(firstPage)).ToList();
+            }
+            else
+            {
+                allEpisodes = new List<SimpleEpisode>(firstPage.Items ?? Enumerable.Empty<SimpleEpisode>());
+                var currentPage = firstPage;
+                var pagesRead = 1;
+                while (pagesRead < maxPages && currentPage.Next != null)
+                {
+                    currentPage = await client.NextPage(currentPage);
+                    if (currentPage?.Items != null)
+                        allEpisodes.AddRange(currentPage.Items);
+                    pagesRead++;
+                }
+            }
+
             _logger.LogInformation("Fetched {Count} episodes for show {ShowId}", allEpisodes.Count, showId);
-            return allEpisodes.ToList();
+            return allEpisodes;
         }
         catch (APIException ex) when (ex.Response?.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -86,6 +105,12 @@ public class SpotifyClientWrapper : ISpotifyClient
         var authenticator = new AuthorizationCodeAuthenticator(clientId, clientSecret, tokenResponse);
 
         var config = SpotifyClientConfig.CreateDefault()
+            .WithRetryHandler(new SimpleRetryHandler
+            {
+                RetryAfter = TimeSpan.FromSeconds(1),
+                RetryTimes = 5,
+                TooManyRequestsConsumesARetry = false
+            })
             .WithAuthenticator(authenticator);
 
         _client = new SpotifyClient(config);

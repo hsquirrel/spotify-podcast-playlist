@@ -20,7 +20,13 @@ public class EpisodeSelector : IEpisodeSelector
     public async Task<PodcastEpisodeGroup> SelectEpisodesAsync(PodcastConfig config)
     {
         // Step 1: Fetch episodes from Spotify API (newest-first from API)
-        var episodes = await _spotifyClient.GetShowEpisodesAsync(config.ShowId);
+        // Episodes come newest-first, 50 per page. We only need enough pages to cover
+        // maxLookbackDays worth of episodes, plus a buffer. As a practical heuristic,
+        // cap at a reasonable number of pages based on maxEpisodes.
+        var maxPages = config.MaxLookbackDays.HasValue
+            ? Math.Max(2, (int)Math.Ceiling(config.MaxEpisodes / 50.0) + 1)
+            : 0;
+        var episodes = await _spotifyClient.GetShowEpisodesAsync(config.ShowId, maxPages);
         _logger.LogInformation("Fetched {Count} episodes for {Name}", episodes.Count, config.Name);
 
         // Filter out null entries that can appear in paginated API results

@@ -51,7 +51,7 @@ public class EpisodeSelectorTests
     public async Task OldestFirst_ReversesApiOrder()
     {
         // API returns newest-first
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep3", "Ep 3", "2025-01-03"),
             MakeEpisode("ep2", "Ep 2", "2025-01-02"),
@@ -66,7 +66,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task NewestFirst_PreservesApiOrder()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep3", "Ep 3", "2025-01-03"),
             MakeEpisode("ep2", "Ep 2", "2025-01-02"),
@@ -81,7 +81,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task FinishedEpisodes_AreExcluded()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep3", "Ep 3", "2025-01-03"),
             MakeEpisode("ep2", "Ep 2", "2025-01-02", fullyPlayed: true),
@@ -100,7 +100,7 @@ public class EpisodeSelectorTests
         var recent = DateTime.UtcNow.AddDays(-3).ToString("yyyy-MM-dd");
         var old = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
 
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("recent", "Recent", recent),
             MakeEpisode("old", "Old", old),
@@ -115,7 +115,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task TitleInclude_KeepsOnlyMatching()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep3", "Season 2 - Episode 3", "2025-01-03"),
             MakeEpisode("ep2", "Season 1 - Episode 2", "2025-01-02"),
@@ -130,7 +130,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task TitleExclude_RemovesMatching()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep3", "Episode 3", "2025-01-03"),
             MakeEpisode("ep2", "Bonus: Extra", "2025-01-02"),
@@ -146,7 +146,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task MaxEpisodes_CapsResult()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>
         {
             MakeEpisode("ep5", "Ep 5", "2025-01-05"),
             MakeEpisode("ep4", "Ep 4", "2025-01-04"),
@@ -165,7 +165,7 @@ public class EpisodeSelectorTests
     [Fact]
     public async Task EmptyShow_ReturnsEmptyGroup()
     {
-        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>());
+        _spotifyClient.GetShowEpisodesAsync("show1", Arg.Any<int>()).Returns(new List<SimpleEpisode>());
 
         var result = await CreateSelector().SelectEpisodesAsync(MakeConfig());
 
