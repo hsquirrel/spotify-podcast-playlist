@@ -1,24 +1,154 @@
 {
   "playlists": [
     {
-      "playlistId": "your-spotify-playlist-id",
+      "playlistId": "6IV0y18KlhhFoBZlxdJKZO",
       "schedule": "0 * * * *",
       "podcasts": [
         {
-          "showId": "spotify-show-id",
-          "name": "My Favorite Podcast",
+          "showId": "1jBNbPVlGUen3sWdd25ho6",
+          "name": "Tech Brew Ride Home",
           "priority": 1,
-          "maxEpisodes": 10,
+          "maxEpisodes": 3,
           "episodeOrder": "oldestFirst",
-          "maxLookbackDays": 30,
-          "titleExclude": "Bonus|Trailer"
+          "maxLookbackDays": 14,
+          "titleExclude": "^\\(BNS\\)"
         },
         {
-          "showId": "another-show-id",
-          "name": "Daily News Podcast",
-          "priority": 3,
+          "showId": "51MrXc7hJQBE2WJf2g4aWN",
+          "name": "WSJ Tech News Briefing",
+          "priority": 1,
           "maxEpisodes": 5,
-          "episodeOrder": "newestFirst"
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 14
+        },
+        {
+          "showId": "7nc7OQdPTekErtFSRxOBKh",
+          "name": "Morning Brew Daily",
+          "priority": 1,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 7,
+          "titleExclude": "^\\(BNS\\)"
+        },
+        {
+          "showId": "2mTUnDkuKUkhiueKcVWoP0",
+          "name": "Up First from NPR",
+          "priority": 1,
+          "maxEpisodes": 3,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 7
+        },
+        {
+          "showId": "1wIytRQ4Ub8McXSP1iDwVX",
+          "name": "The Engineering Leadership Podcast",
+          "priority": 2,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "2fAra2I5Q61QxIQggSwTN4",
+          "name": "Manager Tools",
+          "priority": 2,
+          "maxEpisodes": 2,
+          "episodeOrder": "oldestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "02fM1JHpt9HmHGp482K71b",
+          "name": "Developer Tea",
+          "priority": 2,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "5bBki72YeKSLUqyD94qsuJ",
+          "name": "The Changelog",
+          "priority": 2,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "6UCtBYL29hwhw4YbTdX83N",
+          "name": "Software Engineering Daily",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 30
+        },
+        {
+          "showId": "5tz9eGgXtNHmq3WVD3EwYx",
+          "name": ".NET Rocks!",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "2DgUE1Iyl9cZxzzvUUIPBK",
+          "name": "The Unhandled Exception Podcast",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 90
+        },
+        {
+          "showId": "7Luds9dmzZDoDC8Q7EMbSw",
+          "name": "Refactoring Podcast",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "7icMkauSvLflWCpQrfafIv",
+          "name": "Dev Interrupted",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 30
+        },
+        {
+          "showId": "2Bho9xCbOQMWMJ7UKmqCzD",
+          "name": "The Pragmatic Engineer",
+          "priority": 3,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "5qSUyCrk9KR69lEiXbjwXM",
+          "name": "The Tim Ferriss Show",
+          "priority": 4,
+          "maxEpisodes": 1,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "4fJ2Et7TLy7nBNLOdw3su9",
+          "name": "Kitces and Carl",
+          "priority": 5,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 60
+        },
+        {
+          "showId": "1rlLsh2Ekm1fOQJWvp0uIi",
+          "name": "Fintech Insider Podcast by 11:FS",
+          "priority": 5,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 30
+        },
+        {
+          "showId": "0BVcA7FrEdRTE8UBAw8FjN",
+          "name": "Fintech Impact",
+          "priority": 5,
+          "maxEpisodes": 2,
+          "episodeOrder": "newestFirst",
+          "maxLookbackDays": 30
         }
       ]
     }

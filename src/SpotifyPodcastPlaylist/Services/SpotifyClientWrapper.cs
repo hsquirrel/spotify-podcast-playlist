@@ -20,81 +20,77 @@ public class SpotifyClientWrapper : ISpotifyClient
     {
         var client = await GetClientAsync();
 
-        // TODO: Phase 2 — Spotify API integration (tech spec section 6)
-        //
-        // 1. Call client.Shows.GetEpisodes(showId, new ShowEpisodesRequest())
-        //    - The API returns episodes newest-first by default
-        //    - Set Market = "US" (or from config) to get resume_point data
-        //
-        // 2. Paginate through all pages using SpotifyAPI.Web's built-in pagination:
-        //    - Use client.PaginateAll() to automatically fetch all pages
-        //    - Or manually follow Paging<SimpleEpisode>.Next until null
-        //
-        // 3. Return the full list of SimpleEpisode objects
-        //    - Each episode has: Uri, Name, ReleaseDate, ResumePoint.FullyPlayed
-        //
-        // 4. Error handling (tech spec section 8):
-        //    - On 404 (show not found): log warning, return empty list
-        //    - On 401: log error, throw (caller handles)
-        //    - On other API errors: log warning, return empty list (partial failure)
-
-        throw new NotImplementedException();
+        try
+        {
+            var firstPage = await client.Shows.GetEpisodes(showId, new ShowEpisodesRequest { Market = "US" });
+            var allEpisodes = await client.PaginateAll(firstPage);
+            _logger.LogInformation("Fetched {Count} episodes for show {ShowId}", allEpisodes.Count, showId);
+            return allEpisodes.ToList();
+        }
+        catch (APIException ex) when (ex.Response?.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _logger.LogWarning("Show {ShowId} not found (404), returning empty list", showId);
+            return new List<SimpleEpisode>();
+        }
+        catch (APIException ex) when (ex.Response?.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            _logger.LogError("Unauthorized (401) when fetching show {ShowId}", showId);
+            throw;
+        }
+        catch (APIException ex)
+        {
+            _logger.LogWarning(ex, "API error fetching show {ShowId}, returning empty list", showId);
+            return new List<SimpleEpisode>();
+        }
     }
 
     public async Task ReplacePlaylistTracksAsync(string playlistId, List<string> uris)
     {
         var client = await GetClientAsync();
 
-        // TODO: Phase 2 — Spotify API integration (tech spec section 6)
-        //
-        // 1. Spotify's PUT /playlists/{id}/tracks accepts max 100 URIs per request
-        //
-        // 2. If uris.Count <= 100:
-        //    - Single call: client.Playlists.ReplaceItems(playlistId, new PlaylistReplaceItemsRequest(uris))
-        //
-        // 3. If uris.Count > 100:
-        //    - First call: ReplaceItems with the first 100 URIs (this clears + sets)
-        //    - Subsequent calls: AddItems with chunks of 100 URIs each
-        //      client.Playlists.AddItems(playlistId, new PlaylistAddItemsRequest(chunk))
-        //
-        // 4. If uris is empty:
-        //    - Replace with empty list to clear the playlist
-        //
-        // 5. Error handling (tech spec section 8):
-        //    - On 404 (playlist not found): log error, throw
-        //    - On 401: log error, throw
+        if (uris.Count == 0)
+        {
+            await client.Playlists.ReplaceItems(playlistId, new PlaylistReplaceItemsRequest(new List<string>()));
+            _logger.LogInformation("Cleared playlist {PlaylistId}", playlistId);
+            return;
+        }
 
-        throw new NotImplementedException();
+        // First batch: replace (clears existing + adds first 100)
+        var firstBatch = uris.Take(100).ToList();
+        await client.Playlists.ReplaceItems(playlistId, new PlaylistReplaceItemsRequest(firstBatch));
+
+        // Remaining batches: add in chunks of 100
+        var remaining = uris.Skip(100).ToList();
+        for (var i = 0; i < remaining.Count; i += 100)
+        {
+            var chunk = remaining.Skip(i).Take(100).ToList();
+            await client.Playlists.AddItems(playlistId, new PlaylistAddItemsRequest(chunk));
+        }
+
+        _logger.LogInformation("Replaced playlist {PlaylistId} with {Count} tracks", playlistId, uris.Count);
     }
 
-    private async Task<SpotifyClient> GetClientAsync()
+    private Task<SpotifyClient> GetClientAsync()
     {
         if (_client is not null)
-            return _client;
+            return Task.FromResult(_client);
 
-        // TODO: Phase 2 — Authentication setup (tech spec section 7)
-        //
-        // 1. Read credentials from IConfiguration:
-        //    - var clientId = _configuration["Spotify:ClientId"]
-        //    - var clientSecret = _configuration["Spotify:ClientSecret"]
-        //    - var refreshToken = _configuration["Spotify:RefreshToken"]
-        //
-        // 2. Validate all three values are present; throw if missing
-        //
-        // 3. Create an AuthorizationCodeTokenResponse with the refresh token:
-        //    - var tokenResponse = new AuthorizationCodeTokenResponse { RefreshToken = refreshToken }
-        //
-        // 4. Create an AuthorizationCodeAuthenticator:
-        //    - var authenticator = new AuthorizationCodeAuthenticator(clientId, clientSecret, tokenResponse)
-        //    - The library automatically refreshes the access token when it expires
-        //
-        // 5. Build SpotifyClientConfig with the authenticator:
-        //    - var config = SpotifyClientConfig.CreateDefault().WithAuthenticator(authenticator)
-        //    - Optionally add retry handler for rate limiting (built into library)
-        //
-        // 6. Create and cache the SpotifyClient:
-        //    - _client = new SpotifyClient(config)
+        var clientId = _configuration["Spotify:ClientId"]
+            ?? throw new InvalidOperationException("Spotify:ClientId is not configured");
+        var clientSecret = _configuration["Spotify:ClientSecret"]
+            ?? throw new InvalidOperationException("Spotify:ClientSecret is not configured");
+        var refreshToken = _configuration["Spotify:RefreshToken"]
+            ?? throw new InvalidOperationException("Spotify:RefreshToken is not configured");
 
-        throw new NotImplementedException();
+        var tokenResponse = new AuthorizationCodeTokenResponse { RefreshToken = refreshToken };
+        var authenticator = new AuthorizationCodeAuthenticator(clientId, clientSecret, tokenResponse);
+
+        var config = SpotifyClientConfig.CreateDefault()
+            .WithAuthenticator(authenticator);
+
+        _client = new SpotifyClient(config);
+        _logger.LogInformation("Spotify client initialized");
+
+        return Task.FromResult(_client);
     }
 }

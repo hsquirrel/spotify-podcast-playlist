@@ -1,8 +1,11 @@
 using NSubstitute;
 using SpotifyPodcastPlaylist.Models;
 using SpotifyPodcastPlaylist.Services;
+using SpotifyAPI.Web;
 using Microsoft.Extensions.Logging;
 using Xunit;
+
+using ISpotifyClient = SpotifyPodcastPlaylist.Services.ISpotifyClient;
 
 namespace SpotifyPodcastPlaylist.Tests.Services;
 
@@ -11,89 +14,162 @@ public class EpisodeSelectorTests
     private readonly ISpotifyClient _spotifyClient = Substitute.For<ISpotifyClient>();
     private readonly ILogger<EpisodeSelector> _logger = Substitute.For<ILogger<EpisodeSelector>>();
 
-    // TODO: Phase 6 — EpisodeSelector tests (tech spec section 5 Phase 1 + section 9)
-    //
-    // Test: Oldest-first ordering
-    // - Given episodes returned newest-first from API and config.EpisodeOrder = "oldestFirst",
-    //   verify episodes are reversed (oldest first in result)
-    //
-    // Test: Newest-first ordering
-    // - Given episodes from API and config.EpisodeOrder = "newestFirst",
-    //   verify episodes stay in API order (newest first)
-    //
-    // Test: Default ordering is oldest-first
-    // - Given config with no explicit episodeOrder, verify oldest-first behavior
-    //
-    // Test: Finished episodes excluded
-    // - Given episodes where some have ResumePoint.FullyPlayed = true,
-    //   verify those are excluded from the result
-    //
-    // Test: Lookback filtering
-    // - Given config.MaxLookbackDays = 7 and episodes older than 7 days,
-    //   verify old episodes are excluded
-    //
-    // Test: Title include regex
-    // - Given config.TitleInclude = "Season 2" and mixed episode titles,
-    //   verify only matching episodes are kept
-    //
-    // Test: Title exclude regex
-    // - Given config.TitleExclude = "Bonus|Trailer" and mixed titles,
-    //   verify matching episodes are removed
-    //
-    // Test: Combined filters
-    // - Given multiple filters active at once, verify they all apply in sequence
-    //
-    // Test: MaxEpisodes cap
-    // - Given 10 episodes and config.MaxEpisodes = 3, verify only 3 returned
-    //
-    // Test: Empty show (no episodes)
-    // - Given a show with no episodes, verify empty EpisodeUris list returned
+    private EpisodeSelector CreateSelector() => new(_spotifyClient, _logger);
 
-    [Fact]
-    public void OldestFirst_ReversesApiOrder()
+    private static SimpleEpisode MakeEpisode(string uri, string name, string releaseDate, bool fullyPlayed = false)
     {
-        // TODO: Implement
+        return new SimpleEpisode
+        {
+            Uri = uri,
+            Name = name,
+            ReleaseDate = releaseDate,
+            ResumePoint = new ResumePoint { FullyPlayed = fullyPlayed }
+        };
+    }
+
+    private static PodcastConfig MakeConfig(
+        int maxEpisodes = 100,
+        string episodeOrder = "oldestFirst",
+        int? maxLookbackDays = null,
+        string? titleInclude = null,
+        string? titleExclude = null)
+    {
+        return new PodcastConfig
+        {
+            ShowId = "show1",
+            Name = "Test",
+            Priority = 1,
+            MaxEpisodes = maxEpisodes,
+            EpisodeOrder = episodeOrder,
+            MaxLookbackDays = maxLookbackDays,
+            TitleInclude = titleInclude,
+            TitleExclude = titleExclude,
+        };
     }
 
     [Fact]
-    public void NewestFirst_PreservesApiOrder()
+    public async Task OldestFirst_ReversesApiOrder()
     {
-        // TODO: Implement
+        // API returns newest-first
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep3", "Ep 3", "2025-01-03"),
+            MakeEpisode("ep2", "Ep 2", "2025-01-02"),
+            MakeEpisode("ep1", "Ep 1", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(episodeOrder: "oldestFirst"));
+
+        Assert.Equal(new[] { "ep1", "ep2", "ep3" }, result.EpisodeUris);
     }
 
     [Fact]
-    public void FinishedEpisodes_AreExcluded()
+    public async Task NewestFirst_PreservesApiOrder()
     {
-        // TODO: Implement
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep3", "Ep 3", "2025-01-03"),
+            MakeEpisode("ep2", "Ep 2", "2025-01-02"),
+            MakeEpisode("ep1", "Ep 1", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(episodeOrder: "newestFirst"));
+
+        Assert.Equal(new[] { "ep3", "ep2", "ep1" }, result.EpisodeUris);
     }
 
     [Fact]
-    public void LookbackFilter_ExcludesOldEpisodes()
+    public async Task FinishedEpisodes_AreExcluded()
     {
-        // TODO: Implement
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep3", "Ep 3", "2025-01-03"),
+            MakeEpisode("ep2", "Ep 2", "2025-01-02", fullyPlayed: true),
+            MakeEpisode("ep1", "Ep 1", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig());
+
+        Assert.Equal(new[] { "ep1", "ep3" }, result.EpisodeUris);
+        Assert.DoesNotContain("ep2", result.EpisodeUris);
     }
 
     [Fact]
-    public void TitleInclude_KeepsOnlyMatching()
+    public async Task LookbackFilter_ExcludesOldEpisodes()
     {
-        // TODO: Implement
+        var recent = DateTime.UtcNow.AddDays(-3).ToString("yyyy-MM-dd");
+        var old = DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd");
+
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("recent", "Recent", recent),
+            MakeEpisode("old", "Old", old),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(maxLookbackDays: 7));
+
+        Assert.Single(result.EpisodeUris);
+        Assert.Equal("recent", result.EpisodeUris[0]);
     }
 
     [Fact]
-    public void TitleExclude_RemovesMatching()
+    public async Task TitleInclude_KeepsOnlyMatching()
     {
-        // TODO: Implement
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep3", "Season 2 - Episode 3", "2025-01-03"),
+            MakeEpisode("ep2", "Season 1 - Episode 2", "2025-01-02"),
+            MakeEpisode("ep1", "Season 2 - Episode 1", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(titleInclude: "Season 2"));
+
+        Assert.Equal(new[] { "ep1", "ep3" }, result.EpisodeUris);
     }
 
     [Fact]
-    public void MaxEpisodes_CapsResult()
+    public async Task TitleExclude_RemovesMatching()
     {
-        // TODO: Implement
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep3", "Episode 3", "2025-01-03"),
+            MakeEpisode("ep2", "Bonus: Extra", "2025-01-02"),
+            MakeEpisode("ep1", "Trailer", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(titleExclude: "Bonus|Trailer"));
+
+        Assert.Single(result.EpisodeUris);
+        Assert.Equal("ep3", result.EpisodeUris[0]);
     }
 
     [Fact]
-    public void EmptyShow_ReturnsEmptyGroup()
+    public async Task MaxEpisodes_CapsResult()
     {
-        // TODO: Implement
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>
+        {
+            MakeEpisode("ep5", "Ep 5", "2025-01-05"),
+            MakeEpisode("ep4", "Ep 4", "2025-01-04"),
+            MakeEpisode("ep3", "Ep 3", "2025-01-03"),
+            MakeEpisode("ep2", "Ep 2", "2025-01-02"),
+            MakeEpisode("ep1", "Ep 1", "2025-01-01"),
+        });
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig(maxEpisodes: 3));
+
+        Assert.Equal(3, result.EpisodeUris.Count);
+        // oldestFirst default, so first 3 oldest
+        Assert.Equal(new[] { "ep1", "ep2", "ep3" }, result.EpisodeUris);
+    }
+
+    [Fact]
+    public async Task EmptyShow_ReturnsEmptyGroup()
+    {
+        _spotifyClient.GetShowEpisodesAsync("show1").Returns(new List<SimpleEpisode>());
+
+        var result = await CreateSelector().SelectEpisodesAsync(MakeConfig());
+
+        Assert.Empty(result.EpisodeUris);
+        Assert.Equal(1, result.Priority);
     }
 }

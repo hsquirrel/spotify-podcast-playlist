@@ -1,8 +1,11 @@
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using SpotifyPodcastPlaylist.Models;
 using SpotifyPodcastPlaylist.Services;
 using Microsoft.Extensions.Logging;
 using Xunit;
+
+using ISpotifyClient = SpotifyPodcastPlaylist.Services.ISpotifyClient;
 
 namespace SpotifyPodcastPlaylist.Tests.Services;
 
@@ -15,61 +18,114 @@ public class PlaylistOrchestratorTests
     private readonly ISpotifyClient _spotifyClient = Substitute.For<ISpotifyClient>();
     private readonly ILogger<PlaylistOrchestrator> _logger = Substitute.For<ILogger<PlaylistOrchestrator>>();
 
-    // TODO: Phase 6 — PlaylistOrchestrator integration tests (tech spec section 9)
-    //
-    // These tests use mocked ISpotifyClient but real interleaver and selector
-    // to verify end-to-end episode ordering and playlist replacement.
-    //
-    // Test: Full pipeline — episodes are selected, interleaved, and playlist is replaced
-    // - Configure mock config with 2 podcasts at different priorities
-    // - Configure mock schedule tracker to return isDue = true
-    // - Configure mock Spotify client to return test episodes
-    // - Use real PlaylistInterleaver
-    // - Verify ReplacePlaylistTracksAsync is called with correctly ordered URIs
-    //
-    // Test: Playlist not due — skipped entirely
-    // - Configure mock schedule tracker to return isDue = false
-    // - Verify ReplacePlaylistTracksAsync is never called
-    //
-    // Test: Partial failure — one podcast fails, others still processed
-    // - Configure one podcast's fetch to throw
-    // - Verify playlist is still updated with episodes from successful podcasts
-    //
-    // Test: Playlist update failure — error logged, update time not recorded
-    // - Configure ReplacePlaylistTracksAsync to throw
-    // - Verify RecordUpdateAsync is NOT called for that playlist
-    //
-    // Test: Multiple playlists — each evaluated independently
-    // - Configure two playlists, one due and one not
-    // - Verify only the due playlist is processed
+    private PlaylistOrchestrator CreateOrchestrator() => new(
+        _configProvider, _scheduleTracker, _episodeSelector,
+        _interleaver, _spotifyClient, _logger);
+
+    private static PlaylistConfig MakePlaylist(string id = "playlist1", params PodcastConfig[] podcasts)
+    {
+        return new PlaylistConfig
+        {
+            PlaylistId = id,
+            Schedule = "0 * * * *",
+            Podcasts = podcasts.Length > 0 ? podcasts.ToList() : new List<PodcastConfig>
+            {
+                new() { ShowId = "show1", Name = "Podcast A", Priority = 1, MaxEpisodes = 10 },
+                new() { ShowId = "show2", Name = "Podcast B", Priority = 2, MaxEpisodes = 5 },
+            }
+        };
+    }
 
     [Fact]
     public async Task FullPipeline_SelectsInterleavesAndReplacesPlaylist()
     {
-        // TODO: Implement with real PlaylistInterleaver + mocked Spotify client
+        var playlist = MakePlaylist();
+        _configProvider.GetPlaylists().Returns(new List<PlaylistConfig> { playlist });
+        _scheduleTracker.IsDueAsync("playlist1", Arg.Any<string>()).Returns(true);
+
+        var groupA = new PodcastEpisodeGroup { Priority = 1, EpisodeUris = new List<string> { "a1", "a2" } };
+        var groupB = new PodcastEpisodeGroup { Priority = 2, EpisodeUris = new List<string> { "b1" } };
+        _episodeSelector.SelectEpisodesAsync(playlist.Podcasts[0]).Returns(groupA);
+        _episodeSelector.SelectEpisodesAsync(playlist.Podcasts[1]).Returns(groupB);
+
+        var interleavedUris = new List<string> { "a1", "a2", "b1" };
+        _interleaver.Interleave(Arg.Any<List<PodcastEpisodeGroup>>()).Returns(interleavedUris);
+
+        await CreateOrchestrator().RunAsync();
+
+        await _spotifyClient.Received(1).ReplacePlaylistTracksAsync("playlist1", interleavedUris);
+        await _scheduleTracker.Received(1).RecordUpdateAsync("playlist1");
     }
 
     [Fact]
     public async Task PlaylistNotDue_IsSkipped()
     {
-        // TODO: Implement
+        _configProvider.GetPlaylists().Returns(new List<PlaylistConfig> { MakePlaylist() });
+        _scheduleTracker.IsDueAsync("playlist1", Arg.Any<string>()).Returns(false);
+
+        await CreateOrchestrator().RunAsync();
+
+        await _episodeSelector.DidNotReceive().SelectEpisodesAsync(Arg.Any<PodcastConfig>());
+        await _spotifyClient.DidNotReceive().ReplacePlaylistTracksAsync(Arg.Any<string>(), Arg.Any<List<string>>());
     }
 
     [Fact]
     public async Task PartialPodcastFailure_StillUpdatesPlaylist()
     {
-        // TODO: Implement
+        var playlist = MakePlaylist();
+        _configProvider.GetPlaylists().Returns(new List<PlaylistConfig> { playlist });
+        _scheduleTracker.IsDueAsync("playlist1", Arg.Any<string>()).Returns(true);
+
+        // First podcast fails
+        _episodeSelector.SelectEpisodesAsync(playlist.Podcasts[0])
+            .Throws(new Exception("API error"));
+        // Second podcast succeeds
+        var groupB = new PodcastEpisodeGroup { Priority = 2, EpisodeUris = new List<string> { "b1" } };
+        _episodeSelector.SelectEpisodesAsync(playlist.Podcasts[1]).Returns(groupB);
+
+        _interleaver.Interleave(Arg.Any<List<PodcastEpisodeGroup>>()).Returns(new List<string> { "b1" });
+
+        await CreateOrchestrator().RunAsync();
+
+        await _spotifyClient.Received(1).ReplacePlaylistTracksAsync("playlist1", Arg.Any<List<string>>());
+        await _scheduleTracker.Received(1).RecordUpdateAsync("playlist1");
     }
 
     [Fact]
     public async Task PlaylistUpdateFailure_DoesNotRecordUpdate()
     {
-        // TODO: Implement
+        _configProvider.GetPlaylists().Returns(new List<PlaylistConfig> { MakePlaylist() });
+        _scheduleTracker.IsDueAsync("playlist1", Arg.Any<string>()).Returns(true);
+
+        var group = new PodcastEpisodeGroup { Priority = 1, EpisodeUris = new List<string> { "a1" } };
+        _episodeSelector.SelectEpisodesAsync(Arg.Any<PodcastConfig>()).Returns(group);
+        _interleaver.Interleave(Arg.Any<List<PodcastEpisodeGroup>>()).Returns(new List<string> { "a1" });
+
+        _spotifyClient.ReplacePlaylistTracksAsync("playlist1", Arg.Any<List<string>>())
+            .Throws(new Exception("Spotify API error"));
+
+        await CreateOrchestrator().RunAsync();
+
+        await _scheduleTracker.DidNotReceive().RecordUpdateAsync(Arg.Any<string>());
     }
 
     [Fact]
     public async Task MultiplePlaylists_EachEvaluatedIndependently()
     {
-        // TODO: Implement
+        var playlist1 = MakePlaylist("p1");
+        var playlist2 = MakePlaylist("p2");
+        _configProvider.GetPlaylists().Returns(new List<PlaylistConfig> { playlist1, playlist2 });
+
+        _scheduleTracker.IsDueAsync("p1", Arg.Any<string>()).Returns(true);
+        _scheduleTracker.IsDueAsync("p2", Arg.Any<string>()).Returns(false);
+
+        var group = new PodcastEpisodeGroup { Priority = 1, EpisodeUris = new List<string> { "a1" } };
+        _episodeSelector.SelectEpisodesAsync(Arg.Any<PodcastConfig>()).Returns(group);
+        _interleaver.Interleave(Arg.Any<List<PodcastEpisodeGroup>>()).Returns(new List<string> { "a1" });
+
+        await CreateOrchestrator().RunAsync();
+
+        await _spotifyClient.Received(1).ReplacePlaylistTracksAsync("p1", Arg.Any<List<string>>());
+        await _spotifyClient.DidNotReceive().ReplacePlaylistTracksAsync("p2", Arg.Any<List<string>>());
     }
 }

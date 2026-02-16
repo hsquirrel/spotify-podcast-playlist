@@ -20,19 +20,21 @@ public class UpdatePlaylistFunction
     {
         _logger.LogInformation("UpdatePlaylist function executed at: {Time}", DateTime.UtcNow);
 
-        // TODO: Phase 5 — Function wiring (tech spec sections 1, 8)
-        //
-        // 1. Call the orchestrator:
-        //    - await _orchestrator.RunAsync()
-        //
-        // 2. Error handling (tech spec section 8):
-        //    - Wrap in try/catch
-        //    - On configuration errors: log error, let it propagate (fail loudly)
-        //    - On 401 Unauthorized: log error, skip run (don't crash the function)
-        //    - On other runtime errors: log error, let Azure Functions retry on next tick
-        //
-        // 3. Log completion:
-        //    - _logger.LogInformation("UpdatePlaylist completed at: {Time}", DateTime.UtcNow)
+        try
+        {
+            await _orchestrator.RunAsync();
+            _logger.LogInformation("UpdatePlaylist completed at: {Time}", DateTime.UtcNow);
+        }
+        catch (SpotifyAPI.Web.APIUnauthorizedException ex)
+        {
+            _logger.LogError(ex, "Unauthorized — refresh token may be invalid. Skipping run.");
+            return;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "UpdatePlaylist failed: {Message}", ex.Message);
+            throw;
+        }
 
         if (timerInfo.ScheduleStatus is not null)
         {

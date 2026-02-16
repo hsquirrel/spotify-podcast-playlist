@@ -55,3 +55,8 @@ nunit-*.xml
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Azure Functions local settings (contains secrets)
+local.settings.json
+/.vs/spotify-podcast-playlist/v17/TestStore/0
+/.vs/spotify-podcast-playlist

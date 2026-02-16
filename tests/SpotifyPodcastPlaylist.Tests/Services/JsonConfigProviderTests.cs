@@ -5,77 +5,139 @@ using Xunit;
 
 namespace SpotifyPodcastPlaylist.Tests.Services;
 
-public class JsonConfigProviderTests
+public class JsonConfigProviderTests : IDisposable
 {
-    // TODO: Phase 6 — JsonConfigProvider tests (tech spec section 3 + section 9)
-    //
-    // Note: These tests will need to either:
-    //   a. Write temp JSON files and point the provider at them, or
-    //   b. Refactor JsonConfigProvider to accept a Stream/string for testability
-    //
-    // Test: Valid config parsed successfully
-    // - Given a valid playlists.json with all required fields,
-    //   verify it returns the correct PlaylistConfig objects
-    //
-    // Test: Missing playlistId is rejected
-    // - Given JSON with empty/missing playlistId, verify it throws
-    //
-    // Test: Missing podcasts array is rejected
-    // - Given JSON with no podcasts, verify it throws
-    //
-    // Test: Empty podcasts array is rejected
-    // - Given JSON with podcasts: [], verify it throws
-    //
-    // Test: Priority range enforced (1-10)
-    // - Given podcast with priority 0 or 11, verify it throws
-    //
-    // Test: MaxEpisodes must be >= 1
-    // - Given podcast with maxEpisodes 0, verify it throws
-    //
-    // Test: Cron expression validated
-    // - Given invalid cron expression, verify it throws
-    // - Given valid 5-field cron, verify it parses
-    //
-    // Test: Invalid regex in titleInclude/titleExclude is rejected
-    // - Given an invalid regex string like "[invalid", verify it throws
-    //
-    // Test: Optional fields default correctly
-    // - Given podcast with no episodeOrder, verify it defaults to "oldestFirst"
-    // - Given podcast with no maxLookbackDays, verify it's null
+    private readonly ILogger<JsonConfigProvider> _logger = Substitute.For<ILogger<JsonConfigProvider>>();
+    private readonly List<string> _tempFiles = new();
+
+    public void Dispose()
+    {
+        foreach (var file in _tempFiles)
+        {
+            if (File.Exists(file))
+                File.Delete(file);
+        }
+    }
+
+    private JsonConfigProvider CreateProvider(string json)
+    {
+        var path = Path.GetTempFileName();
+        _tempFiles.Add(path);
+        File.WriteAllText(path, json);
+        return new JsonConfigProvider(_logger, path);
+    }
+
+    private static string ValidJson(string? overridePodcast = null)
+    {
+        var podcast = overridePodcast ?? """
+            {
+                "showId": "show1",
+                "name": "Test Podcast",
+                "priority": 2,
+                "maxEpisodes": 10,
+                "episodeOrder": "oldestFirst"
+            }
+            """;
+
+        return $$"""
+            {
+                "playlists": [
+                    {
+                        "playlistId": "playlist1",
+                        "schedule": "0 * * * *",
+                        "podcasts": [{{podcast}}]
+                    }
+                ]
+            }
+            """;
+    }
 
     [Fact]
     public void ValidConfig_ParsesSuccessfully()
     {
-        // TODO: Implement
+        var provider = CreateProvider(ValidJson());
+
+        var playlists = provider.GetPlaylists();
+
+        Assert.Single(playlists);
+        Assert.Equal("playlist1", playlists[0].PlaylistId);
+        Assert.Equal("0 * * * *", playlists[0].Schedule);
+        Assert.Single(playlists[0].Podcasts);
+        Assert.Equal("show1", playlists[0].Podcasts[0].ShowId);
+        Assert.Equal("Test Podcast", playlists[0].Podcasts[0].Name);
+        Assert.Equal(2, playlists[0].Podcasts[0].Priority);
+        Assert.Equal(10, playlists[0].Podcasts[0].MaxEpisodes);
+        Assert.Equal("oldestFirst", playlists[0].Podcasts[0].EpisodeOrder);
     }
 
     [Fact]
     public void MissingPlaylistId_Throws()
     {
-        // TODO: Implement
+        var json = """
+            {
+                "playlists": [{
+                    "playlistId": "",
+                    "schedule": "0 * * * *",
+                    "podcasts": [{ "showId": "s1", "name": "P", "priority": 1, "maxEpisodes": 1 }]
+                }]
+            }
+            """;
+        var provider = CreateProvider(json);
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetPlaylists());
     }
 
     [Fact]
     public void EmptyPodcasts_Throws()
     {
-        // TODO: Implement
+        var json = """
+            {
+                "playlists": [{
+                    "playlistId": "p1",
+                    "schedule": "0 * * * *",
+                    "podcasts": []
+                }]
+            }
+            """;
+        var provider = CreateProvider(json);
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetPlaylists());
     }
 
     [Fact]
     public void PriorityOutOfRange_Throws()
     {
-        // TODO: Implement
+        var provider = CreateProvider(ValidJson("""
+            { "showId": "s1", "name": "P", "priority": 0, "maxEpisodes": 1 }
+            """));
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetPlaylists());
     }
 
     [Fact]
     public void InvalidCronExpression_Throws()
     {
-        // TODO: Implement
+        var json = """
+            {
+                "playlists": [{
+                    "playlistId": "p1",
+                    "schedule": "not a cron",
+                    "podcasts": [{ "showId": "s1", "name": "P", "priority": 1, "maxEpisodes": 1 }]
+                }]
+            }
+            """;
+        var provider = CreateProvider(json);
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetPlaylists());
     }
 
     [Fact]
     public void InvalidRegex_Throws()
     {
-        // TODO: Implement
+        var provider = CreateProvider(ValidJson("""
+            { "showId": "s1", "name": "P", "priority": 1, "maxEpisodes": 1, "titleInclude": "[invalid" }
+            """));
+
+        Assert.Throws<InvalidOperationException>(() => provider.GetPlaylists());
     }
 }

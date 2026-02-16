@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using SpotifyPodcastPlaylist.Models;
 
 namespace SpotifyPodcastPlaylist.Services;
 
@@ -29,41 +30,53 @@ public class PlaylistOrchestrator
 
     public async Task RunAsync()
     {
-        // TODO: Phase 5 — Orchestration (tech spec sections 1, 4, 5, 6, 8)
-        //
-        // 1. Load configuration:
-        //    - var playlists = _configProvider.GetPlaylists()
-        //    - If config fails, it throws (fail loudly — tech spec section 8)
-        //
-        // 2. For each playlist in playlists:
-        //    a. Check schedule:
-        //       - var isDue = await _scheduleTracker.IsDueAsync(playlist.PlaylistId, playlist.Schedule)
-        //       - If not due, log and skip to next playlist
-        //
-        //    b. Select episodes for each podcast:
-        //       - var episodeGroups = new List<PodcastEpisodeGroup>()
-        //       - For each podcast in playlist.Podcasts:
-        //         - try:
-        //           - var group = await _episodeSelector.SelectEpisodesAsync(podcast)
-        //           - episodeGroups.Add(group)
-        //         - catch (exception):
-        //           - Log warning: "Failed to fetch episodes for {podcast.Name}: {error}"
-        //           - Continue with other podcasts (partial failure — tech spec section 8)
-        //
-        //    c. Interleave episodes:
-        //       - var orderedUris = _interleaver.Interleave(episodeGroups)
-        //       - Log: "Interleaved {count} episodes for playlist {playlist.PlaylistId}"
-        //
-        //    d. Replace playlist contents:
-        //       - try:
-        //         - await _spotifyClient.ReplacePlaylistTracksAsync(playlist.PlaylistId, orderedUris)
-        //         - Log: "Successfully updated playlist {playlist.PlaylistId}"
-        //       - catch (exception):
-        //         - Log error: "Failed to update playlist {playlist.PlaylistId}: {error}"
-        //         - Continue to next playlist (don't record update time)
-        //         - continue
-        //
-        //    e. Record update time:
-        //       - await _scheduleTracker.RecordUpdateAsync(playlist.PlaylistId)
+        // Config loading throws on failure (fail loudly)
+        var playlists = _configProvider.GetPlaylists();
+        _logger.LogInformation("Processing {Count} configured playlist(s)", playlists.Count);
+
+        foreach (var playlist in playlists)
+        {
+            var isDue = await _scheduleTracker.IsDueAsync(playlist.PlaylistId, playlist.Schedule);
+            if (!isDue)
+            {
+                _logger.LogInformation("Playlist {PlaylistId} is not due, skipping", playlist.PlaylistId);
+                continue;
+            }
+
+            // Select episodes for each podcast (partial failure tolerance)
+            var episodeGroups = new List<PodcastEpisodeGroup>();
+            foreach (var podcast in playlist.Podcasts)
+            {
+                try
+                {
+                    var group = await _episodeSelector.SelectEpisodesAsync(podcast);
+                    episodeGroups.Add(group);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch episodes for {PodcastName}, skipping", podcast.Name);
+                }
+            }
+
+            // Interleave episodes
+            var orderedUris = _interleaver.Interleave(episodeGroups);
+            _logger.LogInformation("Interleaved {Count} episodes for playlist {PlaylistId}",
+                orderedUris.Count, playlist.PlaylistId);
+
+            // Replace playlist contents
+            try
+            {
+                await _spotifyClient.ReplacePlaylistTracksAsync(playlist.PlaylistId, orderedUris);
+                _logger.LogInformation("Successfully updated playlist {PlaylistId}", playlist.PlaylistId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update playlist {PlaylistId}", playlist.PlaylistId);
+                continue; // Don't record update time if replace failed
+            }
+
+            // Record update time
+            await _scheduleTracker.RecordUpdateAsync(playlist.PlaylistId);
+        }
     }
 }

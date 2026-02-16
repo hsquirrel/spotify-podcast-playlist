@@ -16,12 +16,82 @@ An Azure Function that automatically builds and maintains Spotify playlists from
 ## Prerequisites
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- An Azure account (for Azure Functions hosting and Blob Storage)
+- [Azure Functions Core Tools](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local) (v4) for local development
+- [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) for local Azure Storage emulation (or a real Azure Storage account)
 - A [Spotify Developer](https://developer.spotify.com) application
+
+## Local Development Setup
+
+### 1. Create a Spotify application
+
+1. Go to [developer.spotify.com](https://developer.spotify.com) and create a new application.
+2. In your app settings, enable **Web API** under "APIs used".
+3. Add a redirect URI: `http://127.0.0.1:5000/callback`.
+4. If the app is in Development mode, add your Spotify account under "User Management".
+5. Note your **Client ID** and **Client Secret** from the app settings.
+
+### 2. Obtain a refresh token
+
+A helper tool is included to run the OAuth2 Authorization Code flow:
+
+```bash
+dotnet run --project tools/AuthHelper
+```
+
+This will prompt for your Client ID and Client Secret, open a browser for authorization, and print a refresh token. If the browser redirects to a page that fails to load, copy the full URL from your browser's address bar and paste it into the console — the tool will extract the authorization code from it.
+
+### 3. Configure local settings
+
+Create `src/SpotifyPodcastPlaylist/local.settings.json` (this file is gitignored):
+
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "Spotify__ClientId": "your-client-id",
+    "Spotify__ClientSecret": "your-client-secret",
+    "Spotify__RefreshToken": "your-refresh-token"
+  }
+}
+```
+
+Set `AzureWebJobsStorage` to `UseDevelopmentStorage=true` if running Azurite locally, or use a real Azure Storage connection string.
+
+### 4. Start Azurite (if using local storage emulation)
+
+```bash
+azurite --silent
+```
+
+Or if installed as a VS Code extension, start it from the command palette.
+
+### 5. Configure your playlists
+
+Edit `src/SpotifyPodcastPlaylist/Config/playlists.json` with your podcast configuration (see Configuration section below).
+
+To find Spotify IDs: open a podcast or playlist in Spotify, click "Share" > "Copy link". The ID is the string after the last `/` and before the `?` (e.g., `https://open.spotify.com/show/SHOW_ID_HERE?si=...`).
+
+### 6. Run
+
+```bash
+# Build
+dotnet build
+
+# Run tests
+dotnet test
+
+# Run the function locally
+cd src/SpotifyPodcastPlaylist
+func start
+```
+
+The function triggers every minute and evaluates each playlist's cron schedule to decide whether an update is due.
 
 ## Configuration
 
-Create a `playlists.json` file in `src/SpotifyPodcastPlaylist/Config/`:
+Edit the `playlists.json` file in `src/SpotifyPodcastPlaylist/Config/`:
 
 ```json
 {
@@ -84,35 +154,20 @@ Create a `playlists.json` file in `src/SpotifyPodcastPlaylist/Config/`:
 
 For local development, set these in `src/SpotifyPodcastPlaylist/local.settings.json`.
 
-## Authentication Setup
+## Authentication
 
-The function uses Spotify's OAuth2 Authorization Code flow. You need to obtain a refresh token once; the function then refreshes the access token automatically.
+The function uses Spotify's OAuth2 Authorization Code flow with the following scopes:
 
-1. Register an application at [developer.spotify.com](https://developer.spotify.com).
-2. Set a redirect URI in your app settings (e.g., `http://localhost:8888/callback`).
-3. Authorize your app with the following scopes:
-   - `playlist-modify-public`
-   - `playlist-modify-private`
-   - `playlist-read-private`
-   - `user-read-playback-position`
-4. Exchange the authorization code for tokens.
-5. Store the refresh token in the `Spotify__RefreshToken` environment variable.
+- `playlist-modify-public`
+- `playlist-modify-private`
+- `playlist-read-private`
+- `user-read-playback-position`
 
-## Build and Run
+You obtain a refresh token once (see step 2 in Local Development Setup above); the function automatically refreshes the access token at runtime.
 
-```bash
-# Build
-dotnet build
+## Production Deployment
 
-# Run tests
-dotnet test
-
-# Run locally (requires Azure Functions Core Tools)
-cd src/SpotifyPodcastPlaylist
-func start
-```
-
-For production, deploy to Azure Functions. The function runs on a timer trigger (every minute) and evaluates each playlist's cron schedule to determine if an update is due.
+Deploy to Azure Functions. Set the environment variables listed above in your Function App's application settings. The function runs on a timer trigger (every minute) and evaluates each playlist's cron schedule to determine if an update is due.
 
 ## License
 
