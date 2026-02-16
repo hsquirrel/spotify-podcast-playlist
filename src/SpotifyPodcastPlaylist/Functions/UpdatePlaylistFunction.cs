@@ -16,7 +16,7 @@ public class UpdatePlaylistFunction
     }
 
     [Function("UpdatePlaylist")]
-    public async Task Run([TimerTrigger("0 * * * * *")] TimerInfo timerInfo)
+    public async Task Run([TimerTrigger("0 0 * * * *", RunOnStartup = true)] TimerInfo timerInfo)
     {
         _logger.LogInformation("UpdatePlaylist function executed at: {Time}", DateTime.UtcNow);
 

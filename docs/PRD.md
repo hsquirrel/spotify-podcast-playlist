@@ -8,7 +8,7 @@ Spotify provides no native way to prioritize, cap, and interleave podcast episod
 
 ### Solution
 
-An automated Azure Function that maintains a Spotify playlist with priority-weighted episode ordering. Users configure their tracked podcasts with individual priorities and episode caps; the function runs on each playlist's configured schedule, fetching recent episodes and rebuilding the playlist using a priority-ordered algorithm that plays higher-priority shows first while keeping each show's episodes in chronological order.
+An automated Azure Function that maintains a Spotify playlist with priority-weighted episode ordering. Users configure their tracked podcasts with individual priorities and episode caps; the function runs hourly (and on startup), evaluating each playlist's configured cron schedule to determine if an update is due. When a playlist is due, it fetches recent episodes and rebuilds the playlist using a priority-ordered algorithm that plays higher-priority shows first while keeping each show's episodes in chronological order.
 
 ## 2. User Stories
 

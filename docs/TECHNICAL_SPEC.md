@@ -2,10 +2,10 @@
 
 ## 1. Architecture Overview
 
-The system runs as an Azure Function on a timer trigger (every minute). Each execution evaluates per-playlist cron schedules and only processes playlists that are due for an update.
+The system runs as an Azure Function on a timer trigger (hourly, with run-on-startup). Each execution evaluates per-playlist cron schedules and only processes playlists that are due for an update.
 
 ```
-Timer Trigger (every minute)
+Timer Trigger (hourly, runs on startup)
   → Load playlist configuration from JSON
   → Authenticate with Spotify (OAuth2 token refresh)
   → For each configured playlist:
@@ -101,7 +101,7 @@ These are read via the standard Azure Functions configuration system (`IConfigur
 
 ## 4. Schedule Evaluation
 
-The Azure Function's timer trigger fires every minute. On each tick, the function evaluates whether each playlist is due for an update:
+The Azure Function's timer trigger fires every hour (and on startup). On each tick, the function evaluates whether each playlist is due for an update:
 
 1. Load the playlist's last update timestamp from Azure Blob Storage.
 2. Parse the playlist's cron expression and determine the most recent scheduled time.
@@ -119,7 +119,9 @@ The algorithm has two phases: **selection** and **interleaving**.
 
 For each podcast in the configuration:
 
-1. Fetch episodes from `GET /shows/{id}/episodes` (most recent first from API).
+1. Fetch episodes from `GET /shows/{id}/episodes` (most recent first from API, 50 per page).
+   - **Pagination limiting**: When `maxLookbackDays` is set, the fetch is limited to a calculated number of pages to reduce API calls. The heuristic is `ceil(maxEpisodes / 50) + 1`, with a minimum of 2 pages. When `maxLookbackDays` is not set, all pages are fetched.
+   - **Null filtering**: Null entries that can appear in paginated API results are filtered out before processing.
 2. Exclude episodes where `resume_point.fully_played` is `true`.
 3. If `maxLookbackDays` is configured, exclude episodes where `release_date` is more than that many days before the current time.
 4. If `titleInclude` is configured, exclude episodes whose `name` does not match the regex.
@@ -172,9 +174,9 @@ Round-robin interleave: c1, d1, c2
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/shows/{id}/episodes` | GET | Fetch recent episodes for a podcast |
-| `/playlists/{id}/tracks` | GET | Read current playlist contents (for logging) |
-| `/playlists/{id}/tracks` | PUT | Replace playlist contents |
+| `/shows/{id}/episodes` | GET | Fetch recent episodes for a podcast (with `Market = "US"`) |
+| `/playlists/{id}/tracks` | PUT | Replace playlist contents (first 100 items) |
+| `/playlists/{id}/tracks` | POST | Add remaining items in 100-item chunks |
 
 ### Library
 
@@ -186,11 +188,11 @@ Using the [`SpotifyAPI.Web`](https://github.com/JohnnyCrazy/SpotifyAPI-NET) NuGe
 
 ### Rate Limiting
 
-The `SpotifyAPI.Web` library automatically retries on HTTP 429 responses with the `Retry-After` header. No custom rate limiting logic is needed.
+A `SimpleRetryHandler` is configured with: `RetryAfter = 1s`, `RetryTimes = 5`, `TooManyRequestsConsumesARetry = false`. This retries on HTTP 429 responses without counting rate-limit retries against the retry budget.
 
 ### Playlist Size Limits
 
-Spotify playlists support up to 10,000 items. The `PUT /playlists/{id}/tracks` endpoint accepts up to 100 URIs per request. For playlists larger than 100 items, multiple requests are needed.
+Spotify playlists support up to 10,000 items. The replacement strategy uses batching: the first 100 items are sent via `PUT /playlists/{id}/tracks` (which clears existing contents and adds the items), and any remaining items are added via `POST /playlists/{id}/tracks` in 100-item chunks.
 
 ## 7. Authentication
 
@@ -248,14 +250,6 @@ The general philosophy is: fail loudly for configuration errors (programmer mist
 |-----------|----------|
 | `PlaylistOrchestrator` | Mock `ISpotifyClient`, provide real interleaver and selector, verify end-to-end episode ordering and playlist replacement call |
 
-## 10. Implementation Phases
+## 10. Implementation Status
 
-| Phase | Scope | Key Deliverables |
-|-------|-------|-----------------|
-| 1 | Config + Models + DI wiring | `PlaylistConfig`, `PodcastConfig`, `PodcastEpisodeGroup`, `JsonConfigProvider`, `IScheduleTracker`, `BlobScheduleTracker`, DI registration in `Program.cs` |
-| 2 | Spotify API integration | `ISpotifyClient`, `SpotifyClientWrapper`, auth setup, episode fetching, playlist replacement |
-| 3 | Episode selection logic | `IEpisodeSelector`, `EpisodeSelector` — fetch, reorder, cap |
-| 4 | Interleaving algorithm | `IPlaylistInterleaver`, `PlaylistInterleaver` — priority-ordered interleaving |
-| 5 | Orchestration + function wiring | `PlaylistOrchestrator`, `UpdatePlaylistFunction` updated to use orchestrator |
-| 6 | Unit and integration tests | Full test suite for all components |
-| 7 | Auth helper | CLI tool or script for initial OAuth2 token acquisition |
+All implementation phases are complete. The system is fully functional with configuration loading, Spotify API integration, episode selection and filtering, priority-ordered interleaving, orchestration, unit/integration tests, and an OAuth2 auth helper tool.
