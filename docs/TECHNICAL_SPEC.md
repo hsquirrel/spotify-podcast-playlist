@@ -230,7 +230,7 @@ The general philosophy is: fail loudly for configuration errors (programmer mist
 ### Framework
 
 - **xUnit** for test framework
-- **Moq** or **NSubstitute** for mocking interfaces
+- **NSubstitute** for mocking interfaces
 - Tests live in `tests/SpotifyPodcastPlaylist.Tests/`
 
 ### Unit Tests
