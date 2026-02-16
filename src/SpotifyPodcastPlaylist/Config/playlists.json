@@ -1,0 +1,26 @@
+{
+  "playlists": [
+    {
+      "playlistId": "your-spotify-playlist-id",
+      "schedule": "0 * * * *",
+      "podcasts": [
+        {
+          "showId": "spotify-show-id",
+          "name": "My Favorite Podcast",
+          "priority": 1,
+          "maxEpisodes": 10,
+          "episodeOrder": "oldestFirst",
+          "maxLookbackDays": 30,
+          "titleExclude": "Bonus|Trailer"
+        },
+        {
+          "showId": "another-show-id",
+          "name": "Daily News Podcast",
+          "priority": 3,
+          "maxEpisodes": 5,
+          "episodeOrder": "newestFirst"
+        }
+      ]
+    }
+  ]
+}
